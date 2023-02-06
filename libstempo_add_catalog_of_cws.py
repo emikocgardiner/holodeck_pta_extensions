@@ -381,16 +381,17 @@ def add_gwb_plus_outlier_cws(psrs, vals, weights, fobs, T_obs, outlier_per_bin=1
     
     FreeSpec = N.array([f_centers,N.sqrt(free_spec)]).T
     
-    #print(FreeSpec)
+    print(FreeSpec)
 
     howml = 10
     
     LT.createGWB(psrs, None, None, userSpec=FreeSpec, howml=howml, seed=seed)
     
     #for pulsar in psrs:
-    #    print("GWB")
-    #    print(pulsar.residuals())
-    #    pulsar.fit()
+    #    #print("GWB")
+    #    #print(pulsar.name)
+    #    #print(pulsar.residuals())
+    #    #pulsar.fit()
         
     #filter out empty entries in outliers
     outlier_hs = outlier_hs[N.where(outlier_hs>0)]
@@ -414,9 +415,9 @@ def add_gwb_plus_outlier_cws(psrs, vals, weights, fobs, T_obs, outlier_per_bin=1
                            pdist=1.0, pphase=None, psrTerm=True, evolve=True,
                            phase_approx=False, tref=53000*86400)
     
-    for pulsar in psrs:
-        #print("GWB+CW")
-        #print(pulsar.residuals())
-        pulsar.fit()
+    #for pulsar in psrs:
+    #    #print("GWB+CW")
+    #    #print(pulsar.residuals())
+    #    #pulsar.fit()
     
-    return f_centers, free_spec, outlier_fo, outlier_hs, outlier_mc, outlier_dl 
+    return f_centers, free_spec, outlier_fo, outlier_hs, outlier_mc, outlier_dl, random_gwthetas, random_gwphis, random_phases, random_psis, random_incs 

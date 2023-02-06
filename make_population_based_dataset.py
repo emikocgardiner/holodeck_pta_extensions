@@ -4,8 +4,10 @@ import shutil
 import json
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import libstempo.toasim as LT
+import libstempo.plot as LP
 
 import libstempo_add_catalog_of_cws as LT_catalog
 
@@ -20,11 +22,18 @@ from holodeck import extensions as holo_extensions
 #
 ####################################################################################
 #number of realizations to produce
-N_real = 2
+N_real = 100
 
 #path to directory where par and tim files will be saved
 #savedir = "../Test_datasets_12p5yr_based_2real/"
-savedir = "../Test_datasets_15yr_based_2real/"
+#savedir = "../Test_datasets_15yr_based_2real/"
+#savedir = "../Test_datasets_15yr_based_100real/"
+#savedir = "../Test_datasets_15yr_based_1real_debug_wn_only/"
+#savedir = "../Test_datasets_15yr_based_1real_v2/"
+#savedir = "../Test_datasets_15yr_based_100real_v2/"
+#savedir = "../Test_datasets_15yr_based_100real_v3/"
+#savedir = "../Test_datasets_15yr_based_100real_v4/"
+savedir = "../Test_datasets_15yr_based_100real_v10/"
 
 #path to par files used for the dataset
 #parpath = '../12p5yr_stripped_pars/'
@@ -60,6 +69,8 @@ os.mkdir(savedir)
 
 #get list of par files
 parfiles = sorted(glob.glob(parpath + '/*.par'))
+#reduce number of psrs for testing
+#parfiles = parfiles[:5]
 print(len(parfiles))
 print(parfiles)
 
@@ -123,9 +134,10 @@ for i in range(N_real):
 
     units = [1.99e+33, 1, 3.17e-08]
 
-    Mtots = samples[0,:]/units[0] #solar mass
+    #Mtots = samples[0,:]/units[0] #solar mass
+    Mtots = samples[0,:] #cgs
     Mrs = samples[1,:]
-    MCHs = utils.chirp_mass(*utils.m1m2_from_mtmr(Mtots, Mrs)) #solar mass
+    MCHs = utils.chirp_mass(*utils.m1m2_from_mtmr(Mtots, Mrs)) #cgs
 
     REDZs = samples[2,:]/units[1]
 
@@ -140,7 +152,7 @@ for i in range(N_real):
 
     #make vals array containing chirp mass, mass ratio, redshift, and observer frame GW frequency for each binary
     vals = np.array([Mtots, Mrs, REDZs, FOs])
-
+    
     #reset psr objects so they have zero residuals
     for psr in psrs:
         for I in range(3):
@@ -149,31 +161,47 @@ for i in range(N_real):
 
     #Add WN (only efac needed for epoch-averaged TOAs)
     for psr in psrs:
+        #print("WN")
+        #print(psr.name)
         LT.add_efac(psr, efac=1.00, seed=1_000_000+i)
-        psr.fit()
+        #psr.fit()
 
     #Add per-psr RN
     with open(rn_json, 'r') as f:
         noisedict = json.load(f)
     for psr in psrs:
+        #print("PSR RN")
+        #print(psr.name)
         A = 10**noisedict[psr.name+"_red_noise_log10_A"]
         gamma = noisedict[psr.name+"_red_noise_gamma"]
         LT.add_rednoise(psr, A, gamma, components=30, seed=1848_1919+i)
-        psr.fit()
+        #psr.fit()
 
     #Add population of BBHs
-    f_centers, free_spec, outlier_fo, outlier_hs, outlier_mc, outlier_dl = LT_catalog.add_gwb_plus_outlier_cws(psrs,
-                                                                                                               vals, weights, F_bins, T_obs,
-                                                                                                               outlier_per_bin=1_000, seed=1994+i)
-
-
+    inj_return = LT_catalog.add_gwb_plus_outlier_cws(psrs,
+                                                     vals, weights, F_bins, T_obs,
+                                                     outlier_per_bin=1_000, seed=1994+i)
+    f_centers, free_spec, outlier_fo, outlier_hs, outlier_mc, outlier_dl, random_gwthetas, random_gwphis, random_phases, random_psis, random_incs = inj_return
     #save simulated dataset to tim files
     real_dir = savedir+"real{0:03d}/".format(i)
     os.mkdir(real_dir)
-    for j in range(len(psrs)):
-        psr.fit()
-        psrs[j].savetim(real_dir + 'fake_{0}.tim'.format(psrs[j].name))
-
-    np.savez(real_dir+"simulation_info.npz", free_spec=free_spec, f_centers=f_centers,
+    
+    np.savez(real_dir+"simulation_info.npz", free_spec=free_spec, f_centers=f_centers, F_bins=F_bins,
                                              outlier_fo=outlier_fo, outlier_hs=outlier_hs,
-                                             outlier_mc=outlier_mc, outlier_dl=outlier_dl)#, vals=vals)
+                                             outlier_mc=outlier_mc, outlier_dl=outlier_dl,
+                                             random_gwthetas=random_gwthetas, random_gwphis=random_gwphis,
+                                             random_phases=random_phases, random_psis=random_psis, random_incs=random_incs)
+
+    for j in range(len(psrs)):
+        #print("CWs")
+        print(psrs[j].name)
+        #no need to fit here since we fit after adding each signal
+        psrs[j].fit()
+        psrs[j].savetim(real_dir + 'fake_{0}.tim'.format(psrs[j].name))
+        #psrs[j].savepar(real_dir + 'fake_{0}.par'.format(psrs[j].name))
+
+    #for iii, psr in enumerate(psrs):
+    #    plt.figure(iii)
+    #    LP.plotres(psr)
+    #    plt.savefig(psr.name+"_injection_debug.png")
+
